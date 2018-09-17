@@ -1,0 +1,22 @@
+1. 无重复文本：8290，所有标注文本：9947
+
+2. 各个subject的数量如下：
+
+Subject:  动力  Count of samples:  2732
+Subject:  价格  Count of samples:  1273
+Subject:  内饰  Count of samples:  536
+Subject:  配置  Count of samples:  853
+Subject:  安全性  Count of samples:  573
+Subject:  外观  Count of samples:  489
+Subject:  操控  Count of samples:  1036
+Subject:  油耗  Count of samples:  1082
+Subject:  空间  Count of samples:  442
+Subject:  舒适性  Count of samples:  931
+
+3. 各个情感值的分布：
+
+Sentiment value:  -1  Count of samples:  1616
+Sentiment value:  0  Count of samples:  6661
+Sentiment value:  1  Count of samples:  1670
+
+
