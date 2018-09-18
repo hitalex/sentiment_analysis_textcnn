@@ -1,3 +1,5 @@
+#coding=utf8
+
 import numpy as np
 import re
 import word2vec
@@ -14,6 +16,35 @@ class w2v_wrapper:
             self.model.vocab_hash['unknown'] = len(self.model.vocab)
             self.model.vectors = np.row_stack((self.model.vectors,unknown_vec))
 
+# 读入下载的词向量模型
+class WordEmbeddingModel:
+    def __init__(self, file_path):
+        with open(filepath, 'r', encoding='utf-8',errors='ignore') as f:
+            line = f.readline()
+            seg_list = line.split(' ')
+            self.vocab_size = int(seg_list[0])
+            self.embedding_dim = int(seg_list[1])
+
+            print('Vocabulary size: ', vocab_size, '\tVector dim: ', embedding_dim)
+
+            self.vocab_hash = dict()
+            self.vectors = np.zeros((vocab_size, embedding_dim), np.float)
+            i = 0
+            for line in f:
+                seg_list = line.split(' ')
+                word = seg_list[0]
+                assert embedding_dim == len(seg_list[1:])
+                self.vectors[i] = list(map(float, seg_list[1:]))
+                self.vocab_hash[word] = self.vectors[i]
+                i += 1
+
+        # 添加未出现的词
+        if 'unknown' not  in self.vocab_hash:
+            unknown_vec = np.random.uniform(-0.1,0.1, size = embedding_dim)
+            self.vocab_hash['unknown'] = len(self.vocab_hash)
+            self.vectors = np.row_stack((self.vectors,unknown_vec))
+
+        self.vocab_size = len(self.vocab_hash)
 
 def clean_str(string):
     """
@@ -120,6 +151,14 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
 
 
 def get_text_idx(text,vocab,max_document_length):
+    ''' 从已训练好的词向量模型初始化
+    Input:
+        text: 输入的文本
+        vocab：预处理的词向量模型map
+        max_document_length: 最长句子中词的数量
+    Output:
+        词向量的矩阵
+    '''
     text_array = np.zeros([len(text), max_document_length],dtype=np.int32)
 
     for i,x in  enumerate(text):

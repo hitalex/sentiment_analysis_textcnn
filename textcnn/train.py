@@ -17,9 +17,11 @@ from tensorflow.contrib import learn
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 # tf.flags.DEFINE_string("train_data_file", "/var/proj/sentiment_analysis/data/cutclean_tiny_stopword_corpus10000.txt", "Data source for the positive data.")
-tf.flags.DEFINE_string("train_data_file", "../data/cutclean_label_corpus10000.txt", "Data source for the positive data.")
+#tf.flags.DEFINE_string("train_data_file", "../data/cutclean_label_corpus10000.txt", "Data source for the positive data.")
+tf.flags.DEFINE_string("train_data_file", "../datasets/phase1/train.csv", "Train datasets for phase1")
 tf.flags.DEFINE_string("train_label_data_file", "", "Data source for the label data.")
 tf.flags.DEFINE_string("w2v_file", "../data/vectors.bin", "w2v_file path")
+tf.flags.DEFINE_string("chi_word_vector_file", "../word-embeddings-data/sgns.weibo.bigram-char", "embedding file path")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
@@ -47,8 +49,15 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 
-def load_data(w2v_model):
-    """Loads starter word-vectors and train/dev/test data."""
+def load_data(embedding_model):
+    """Loads starter word-vectors and train/dev/test data.
+    Input:
+        embedding_model: WordEmbeddingModel对象，这里并不特定指定使用某个词向量模型
+
+    Output:
+        x_train, y_train, x_dev, y_dev: 训练集样本以及标签，验证集样本以及标签
+        vocab_size: 词典大小
+    """
     # Load the starter word vectors
     print("Loading data...")
     x_text, y = data_helpers.load_data_and_labels(FLAGS.train_data_file)
@@ -56,24 +65,26 @@ def load_data(w2v_model):
     #     l = len(x.split(" "))
     #     break
 
+    # 每句话最多的单词数
     max_document_length = max([len(x.split(" ")) for x in x_text])
     print ('len(x) = ',len(x_text),' ',len(y))
     print(' max_document_length = ' , max_document_length)
 
     x = []
     vocab_size = 0
-    if(w2v_model is None):
-      vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-      x = np.array(list(vocab_processor.fit_transform(x_text)))
-      vocab_size = len(vocab_processor.vocabulary_)
+    if(embedding_model is None):
+        vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+        x = np.array(list(vocab_processor.fit_transform(x_text)))
+        vocab_size = len(vocab_processor.vocabulary_)
 
       # out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", str(int(time.time()))))
-      vocab_processor.save("vocab.txt")
-      print( 'save vocab.txt')
+        vocab_processor.save("vocab.txt")
+        print( 'save vocab.txt')
     else:
-      x = data_helpers.get_text_idx(x_text,w2v_model.vocab_hash,max_document_length)
-      vocab_size = len(w2v_model.vocab_hash)
-      print('use w2v .bin')
+        # embedding_model.vocab_hash 相对于一个dict
+        x = data_helpers.get_text_idx(x_text, embedding_model.vocab_hash, max_document_length)
+        vocab_size = len(embedding_model.vocab_hash)
+        print('use w2v .bin')
 
     np.random.seed(10)
     shuffle_indices = np.random.permutation(np.arange(len(y)))
@@ -87,10 +98,12 @@ def load_data(w2v_model):
     return x_train,x_dev,y_train,y_dev,vocab_size
 
 
-def train(w2v_model):
+def train(embedding_model):
     # Training
     # ==================================================
-    x_train, x_dev, y_train, y_dev ,vocab_size= load_data(w2v_model)
+    print('Loading data...')
+    x_train, x_dev, y_train, y_dev ,vocab_size= load_data(embedding_model)
+
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
           allow_soft_placement=FLAGS.allow_soft_placement,
@@ -98,11 +111,12 @@ def train(w2v_model):
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = TextCNN(
-                w2v_model,
+                embedding_model,
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=vocab_size,
-                embedding_size=FLAGS.embedding_dim,
+                #embedding_size = FLAGS.embedding_dim,
+                embedding_size = embedding_model.embedding_dim,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                 num_filters=FLAGS.num_filters,
                 l2_reg_lambda=FLAGS.l2_reg_lambda)
@@ -222,5 +236,8 @@ def train(w2v_model):
 
 
 if __name__ == "__main__":  
-    w2v_wr = data_helpers.w2v_wrapper(FLAGS.w2v_file)
-    train(w2v_wr.model)
+    #w2v_wr = data_helpers.w2v_wrapper(FLAGS.w2v_file)
+    #train(w2v_wr.model)
+
+    embedding_model = data_helpers.WordEmbeddingModel(FLAGS.chi_word_vector_file)
+    train(embedding_model)
